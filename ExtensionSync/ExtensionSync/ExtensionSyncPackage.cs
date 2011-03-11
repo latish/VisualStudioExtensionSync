@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.ComponentModel.Design;
 using EnvDTE;
 using Microsoft.VisualStudio.ExtensionManager;
+using Microsoft.VisualStudio.ExtensionManager.UI;
 using Microsoft.Win32;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell.Interop;
@@ -28,15 +29,15 @@ namespace LatishSehgal.ExtensionSync
 
         protected override void Initialize()
         {
-            Trace.WriteLine (string.Format(CultureInfo.CurrentCulture, "Entering Initialize() of: {0}", this));
+            Trace.WriteLine(string.Format(CultureInfo.CurrentCulture, "Entering Initialize() of: {0}", this));
             base.Initialize();
 
             var mcs = GetService(typeof(IMenuCommandService)) as OleMenuCommandService;
-            if ( null != mcs )
+            if (null != mcs)
             {
                 var menuCommandID = new CommandID(GuidList.guidExtensionSyncCmdSet, (int)PkgCmdIDList.cmdidSyncExtensions);
-                var menuItem = new MenuCommand(MenuItemCallback, menuCommandID );
-                mcs.AddCommand( menuItem );
+                var menuItem = new MenuCommand(MenuItemCallback, menuCommandID);
+                mcs.AddCommand(menuItem);
             }
         }
 
@@ -44,12 +45,24 @@ namespace LatishSehgal.ExtensionSync
         {
             var uiShell = (IVsUIShell)GetService(typeof(SVsUIShell));
             var dte = GetService(typeof(SDTE)) as DTE;
-            dynamic extManager = GetService(typeof(SVsExtensionManager)) ;
-            IEnumerable<IInstalledExtension > installedExtensions = extManager.GetInstalledExtensions();
-            foreach (var installedExtension in installedExtensions)
+            var extManager = GetService(typeof(SVsExtensionManager)) as IVsExtensionManager;
+            var extRepository = GetService(typeof(SVsExtensionRepository)) as IVsExtensionRepository;
+            var installedExtensions = extManager.GetInstalledExtensions();
+            var userExtensions = installedExtensions.Where(ext => !ext.Header.SystemComponent);
+            foreach (var extension in userExtensions)
             {
-                Debug.WriteLine(String.Format("Name: {0}, Installed By MSI: {1}, Type: {2}, State: {3}", installedExtension.Header.Name, installedExtension.Header.InstalledByMsi, installedExtension.Type, installedExtension.State));
+                Debug.WriteLine(String.Format("Name: {0}, Installed By MSI: {1}, Type: {2}, State: {3}, System Component: {4}", extension.Header.Name, extension.Header.InstalledByMsi, extension.Type,
+                    extension.State, extension.Header.SystemComponent));
             }
+
+            var entry = new VSGalleryEntry()
+            {
+                DownloadUrl = "http://visualstudiogallery.msdn.microsoft.com/1269c9a1-fcfe-4b47-91e7-22c7027f3c41/file/46303/1/KillCassini.vsix?SRC=VSIDE&amp;update=true",
+                VsixID = "6ffccb42-5c12-4632-82d8-41d3349e8ba8",
+                VsixReferences = string.Empty
+            };
+            var installableExtension = extRepository.Download(entry);
+            var restartReason = extManager.Install(installableExtension, true);
         }
 
     }
