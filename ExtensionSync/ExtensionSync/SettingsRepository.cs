@@ -19,7 +19,7 @@ namespace LatishSehgal.ExtensionSync
         {
             var installedExtensionsInformation = extensionManager.GetInstalledExtensionsInformation();
 
-            using (var fileStream = new FileStream(settingsFilePath, FileMode.OpenOrCreate))
+            using (var fileStream = new FileStream(settingsFilePath, FileMode.Create))
             {
                 var serializer = new XmlSerializer(typeof(List<ExtensionInformation>));
                 serializer.Serialize(fileStream, installedExtensionsInformation);

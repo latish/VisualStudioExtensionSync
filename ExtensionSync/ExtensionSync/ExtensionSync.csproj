@@ -168,11 +168,6 @@
     <None Include="Key.snk" />
   </ItemGroup>
   <ItemGroup>
-    <VSCTCompile Include="ExtensionSync.vsct">
-      <ResourceName>Menus.ctmenu</ResourceName>
-    </VSCTCompile>
-  </ItemGroup>
-  <ItemGroup>
     <None Include="Resources\Images_32bit.bmp" />
   </ItemGroup>
   <ItemGroup>

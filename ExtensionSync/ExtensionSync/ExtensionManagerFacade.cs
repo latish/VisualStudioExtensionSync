@@ -22,7 +22,7 @@ namespace LatishSehgal.ExtensionSync
         public List<ExtensionInformation> GetInstalledExtensionsInformation()
         {
             var installedExtensions = ExtensionManager.GetInstalledExtensions();
-            var userExtensions = installedExtensions.Where(ext => !ext.Header.SystemComponent);
+            var userExtensions = installedExtensions.Where(ext => !ext.Header.SystemComponent).OrderBy(ext=>ext.Header.Name);
             return userExtensions.Select(e => new ExtensionInformation { Name = e.Header.Name, Identifier = e.Header.Identifier }).ToList();
         }
 
