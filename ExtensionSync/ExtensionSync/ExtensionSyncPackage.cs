@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.ComponentModel.Design;
+using System.Xml.Serialization;
 using EnvDTE;
 using Microsoft.VisualStudio.ExtensionManager;
 using Microsoft.VisualStudio.ExtensionManager.UI;
@@ -20,8 +22,11 @@ namespace LatishSehgal.ExtensionSync
     [InstalledProductRegistration("#110", "#112", "1.0", IconResourceID = 400)]
     [ProvideMenuResource("Menus.ctmenu", 1)]
     [Guid(GuidList.guidExtensionSyncPkgString)]
+    [ProvideOptionPage(typeof(OptionsPage),
+        "Extension Sync", "General", 0, 0, true)]
     public sealed class ExtensionSyncPackage : Package
     {
+
         public ExtensionSyncPackage()
         {
             Trace.WriteLine(string.Format(CultureInfo.CurrentCulture, "Entering constructor for: {0}", this));
@@ -39,31 +44,179 @@ namespace LatishSehgal.ExtensionSync
                 var menuItem = new MenuCommand(MenuItemCallback, menuCommandID);
                 mcs.AddCommand(menuItem);
             }
+
+            ExtensionRepository.DownloadCompleted += ExtensionRepository_DownloadCompleted;
+            ExtensionManager.InstallCompleted += ExtensionManager_InstallCompleted;
         }
+
+
 
         private void MenuItemCallback(object sender, EventArgs e)
         {
             var uiShell = (IVsUIShell)GetService(typeof(SVsUIShell));
             var dte = GetService(typeof(SDTE)) as DTE;
-            var extManager = GetService(typeof(SVsExtensionManager)) as IVsExtensionManager;
-            var extRepository = GetService(typeof(SVsExtensionRepository)) as IVsExtensionRepository;
-            var installedExtensions = extManager.GetInstalledExtensions();
-            var userExtensions = installedExtensions.Where(ext => !ext.Header.SystemComponent);
-            foreach (var extension in userExtensions)
-            {
-                Debug.WriteLine(String.Format("Name: {0}, Installed By MSI: {1}, Type: {2}, State: {3}, System Component: {4}", extension.Header.Name, extension.Header.InstalledByMsi, extension.Type,
-                    extension.State, extension.Header.SystemComponent));
-            }
-
-            var entry = new VSGalleryEntry()
-            {
-                DownloadUrl = "http://visualstudiogallery.msdn.microsoft.com/1269c9a1-fcfe-4b47-91e7-22c7027f3c41/file/46303/1/KillCassini.vsix?SRC=VSIDE&amp;update=true",
-                VsixID = "6ffccb42-5c12-4632-82d8-41d3349e8ba8",
-                VsixReferences = string.Empty
-            };
-            var installableExtension = extRepository.Download(entry);
-            var restartReason = extManager.Install(installableExtension, true);
+            SynchronizeExtensions();
+            //PersistExtensionSettings();
         }
 
+        void SynchronizeExtensions()
+        {
+            var persistedExtensionSettings = GetPersistedExtensionSettings();
+            var installedUserExtensions = GetInstalledExtensionsInformation();
+
+            var extensionsToInstall = persistedExtensionSettings.Except(installedUserExtensions);
+            var extensionsToRemove = installedUserExtensions.Except(persistedExtensionSettings);
+
+
+            DownloadAndInstallExtensions(extensionsToInstall);
+        }
+
+        void DownloadAndInstallExtensions(IEnumerable<ExtensionInformation> extensionsToInstall)
+        {
+            var query = ExtensionRepository.CreateQuery<VSGalleryEntry>(false, true);
+            query.ExecuteCompleted += query_ExecuteCompleted;
+
+            foreach (var extensionInformation in extensionsToInstall)
+            {
+                query.SearchText = extensionInformation.Name;
+                query.ExecuteAsync(extensionInformation);
+            }
+        }
+
+        void query_ExecuteCompleted(object sender, ExecuteCompletedEventArgs e)
+        {
+            if (e.Error != null)
+            {
+                LogMessage(string.Format("Error while searching online for extension: {0}", e.Error.Message));
+                return;
+            }
+
+            var extensionInformation = (ExtensionInformation)e.UserState;
+            var entry = e.Results.Cast<VSGalleryEntry>().Single(r => r.Name == extensionInformation.Name && r.VsixID == extensionInformation.Identifier);
+            if (entry == null)
+            {
+                LogMessage(string.Format("Could not find {0} in Online Repository", extensionInformation.Name));
+                return;
+            }
+            ExtensionRepository.DownloadAsync(entry);
+        }
+
+        void ExtensionRepository_DownloadCompleted(object sender, DownloadCompletedEventArgs e)
+        {
+            if (e.Error != null)
+            {
+                LogMessage(string.Format("Error while downloading extension: {0}", e.Error.Message));
+                return;
+            }
+
+            var installableExtension = e.Payload;
+            if (installableExtension == null)
+                return;
+            ExtensionManager.InstallAsync(installableExtension, false);
+        }
+
+        void ExtensionManager_InstallCompleted(object sender, InstallCompletedEventArgs e)
+        {
+            if (e.Error != null)
+            {
+                LogMessage(string.Format("Error while installing extension: {0}", e.Error.Message));
+                return;
+            }
+
+            LogMessage(string.Format("Installed extension: {0}", e.Extension.Header.Name));
+
+        }
+
+        void PersistExtensionSettings()
+        {
+            var installedExtensionsInformation = GetInstalledExtensionsInformation();
+
+            using (var fileStream = new FileStream(SettingsFilePath, FileMode.OpenOrCreate))
+            {
+                var serializer = new XmlSerializer(typeof(List<ExtensionInformation>));
+                serializer.Serialize(fileStream, installedExtensionsInformation);
+            }
+        }
+
+        List<ExtensionInformation> GetPersistedExtensionSettings()
+        {
+            var settings = new List<ExtensionInformation>();
+            try
+            {
+                if (File.Exists(SettingsFilePath))
+                {
+                    using (var fileStream = new FileStream(SettingsFilePath, FileMode.Open))
+                    {
+                        var serializer = new XmlSerializer(typeof(List<ExtensionInformation>));
+                        settings = (List<ExtensionInformation>)serializer.Deserialize(fileStream);
+                        return settings;
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine(exception);
+            }
+
+            return settings;
+        }
+
+        List<ExtensionInformation> GetInstalledExtensionsInformation()
+        {
+            var installedExtensions = ExtensionManager.GetInstalledExtensions();
+            var userExtensions = installedExtensions.Where(ext => !ext.Header.SystemComponent);
+            return userExtensions.Select(e => new ExtensionInformation { Name = e.Header.Name, Identifier = e.Header.Identifier }).ToList();
+        }
+
+        private void LogMessage(string message)
+        {
+            DebugPane.OutputString(string.Format("{0}: {1} \r\n",PackageName,message));
+        }
+
+        private IVsOutputWindowPane DebugPane
+        {
+            get
+            {
+                if (debugPane == null)
+                {
+                    var outputWindow = GetGlobalService(typeof(SVsOutputWindow)) as IVsOutputWindow;
+                    var debugPaneGuid = VSConstants.GUID_OutWindowDebugPane;
+                    if (outputWindow != null)
+                        outputWindow.GetPane(ref debugPaneGuid, out debugPane);
+                }
+                return debugPane;
+            }
+        }
+
+        IVsExtensionManager ExtensionManager
+        {
+            get { return extensionManager ?? (extensionManager = GetService(typeof(SVsExtensionManager)) as IVsExtensionManager); }
+        }
+
+        IVsExtensionRepository ExtensionRepository
+        {
+            get { return extensionRepository ?? (extensionRepository = GetService(typeof(SVsExtensionRepository)) as IVsExtensionRepository); }
+        }
+
+        string SettingsFilePath
+        {
+            get
+            {
+                var page = (OptionsPage)GetDialogPage(typeof(OptionsPage));
+                var directoryPath = page.DirectoryPath;
+                if (String.IsNullOrEmpty(directoryPath) || !Directory.Exists(directoryPath))
+                {
+                    directoryPath = page.DirectoryPath = UserLocalDataPath;
+                }
+                return Path.Combine(directoryPath, SettingsFileName);
+            }
+        }
+
+        IVsOutputWindowPane debugPane;
+        IVsExtensionManager extensionManager;
+        IVsExtensionRepository extensionRepository;
+
+        const string PackageName = "ExtensionSync";
+        const string SettingsFileName = "ExtensionSync.xml";
     }
 }
