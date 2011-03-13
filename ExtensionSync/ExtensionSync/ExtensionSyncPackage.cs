@@ -26,7 +26,6 @@ namespace LatishSehgal.ExtensionSync
         "Extension Sync", "General", 0, 0, true)]
     public sealed class ExtensionSyncPackage : Package
     {
-
         public ExtensionSyncPackage()
         {
             Trace.WriteLine(string.Format(CultureInfo.CurrentCulture, "Entering constructor for: {0}", this));
@@ -45,11 +44,12 @@ namespace LatishSehgal.ExtensionSync
                 mcs.AddCommand(menuItem);
             }
 
-            ExtensionRepository.DownloadCompleted += ExtensionRepository_DownloadCompleted;
-            ExtensionManager.InstallCompleted += ExtensionManager_InstallCompleted;
+            var vsExtensionManager =  GetService(typeof (SVsExtensionManager)) as IVsExtensionManager;
+            var vsExtensionRepository = GetService(typeof (SVsExtensionRepository)) as IVsExtensionRepository;
+
+            extensionManager = new ExtensionManagerFacade(vsExtensionManager, vsExtensionRepository);
+            extensionManager.Log += LogMessage;
         }
-
-
 
         private void MenuItemCallback(object sender, EventArgs e)
         {
@@ -59,117 +59,31 @@ namespace LatishSehgal.ExtensionSync
             //PersistExtensionSettings();
         }
 
+        void PersistExtensionSettings()
+        {
+            var settingsRepository = new SettingsRepository(extensionManager, SettingsFilePath);
+            settingsRepository.Log += LogMessage;
+            settingsRepository.PersistExtensionSettings();
+        }
+
         void SynchronizeExtensions()
         {
-            var persistedExtensionSettings = GetPersistedExtensionSettings();
-            var installedUserExtensions = GetInstalledExtensionsInformation();
+            var settingsRepository = new SettingsRepository(extensionManager, SettingsFilePath);
+            settingsRepository.Log += LogMessage;
+            var persistedExtensionSettings =settingsRepository.GetPersistedExtensionSettings();
+
+            var installedUserExtensions = extensionManager.GetInstalledExtensionsInformation();
 
             var extensionsToInstall = persistedExtensionSettings.Except(installedUserExtensions);
             var extensionsToRemove = installedUserExtensions.Except(persistedExtensionSettings);
 
-
-            DownloadAndInstallExtensions(extensionsToInstall);
-        }
-
-        void DownloadAndInstallExtensions(IEnumerable<ExtensionInformation> extensionsToInstall)
-        {
-            var query = ExtensionRepository.CreateQuery<VSGalleryEntry>(false, true);
-            query.ExecuteCompleted += query_ExecuteCompleted;
-
-            foreach (var extensionInformation in extensionsToInstall)
-            {
-                query.SearchText = extensionInformation.Name;
-                query.ExecuteAsync(extensionInformation);
-            }
-        }
-
-        void query_ExecuteCompleted(object sender, ExecuteCompletedEventArgs e)
-        {
-            if (e.Error != null)
-            {
-                LogMessage(string.Format("Error while searching online for extension: {0}", e.Error.Message));
-                return;
-            }
-
-            var extensionInformation = (ExtensionInformation)e.UserState;
-            var entry = e.Results.Cast<VSGalleryEntry>().Single(r => r.Name == extensionInformation.Name && r.VsixID == extensionInformation.Identifier);
-            if (entry == null)
-            {
-                LogMessage(string.Format("Could not find {0} in Online Repository", extensionInformation.Name));
-                return;
-            }
-            ExtensionRepository.DownloadAsync(entry);
-        }
-
-        void ExtensionRepository_DownloadCompleted(object sender, DownloadCompletedEventArgs e)
-        {
-            if (e.Error != null)
-            {
-                LogMessage(string.Format("Error while downloading extension: {0}", e.Error.Message));
-                return;
-            }
-
-            var installableExtension = e.Payload;
-            if (installableExtension == null)
-                return;
-            ExtensionManager.InstallAsync(installableExtension, false);
-        }
-
-        void ExtensionManager_InstallCompleted(object sender, InstallCompletedEventArgs e)
-        {
-            if (e.Error != null)
-            {
-                LogMessage(string.Format("Error while installing extension: {0}", e.Error.Message));
-                return;
-            }
-
-            LogMessage(string.Format("Installed extension: {0}", e.Extension.Header.Name));
-
-        }
-
-        void PersistExtensionSettings()
-        {
-            var installedExtensionsInformation = GetInstalledExtensionsInformation();
-
-            using (var fileStream = new FileStream(SettingsFilePath, FileMode.OpenOrCreate))
-            {
-                var serializer = new XmlSerializer(typeof(List<ExtensionInformation>));
-                serializer.Serialize(fileStream, installedExtensionsInformation);
-            }
-        }
-
-        List<ExtensionInformation> GetPersistedExtensionSettings()
-        {
-            var settings = new List<ExtensionInformation>();
-            try
-            {
-                if (File.Exists(SettingsFilePath))
-                {
-                    using (var fileStream = new FileStream(SettingsFilePath, FileMode.Open))
-                    {
-                        var serializer = new XmlSerializer(typeof(List<ExtensionInformation>));
-                        settings = (List<ExtensionInformation>)serializer.Deserialize(fileStream);
-                        return settings;
-                    }
-                }
-            }
-            catch (Exception exception)
-            {
-                Console.WriteLine(exception);
-            }
-
-            return settings;
-        }
-
-        List<ExtensionInformation> GetInstalledExtensionsInformation()
-        {
-            var installedExtensions = ExtensionManager.GetInstalledExtensions();
-            var userExtensions = installedExtensions.Where(ext => !ext.Header.SystemComponent);
-            return userExtensions.Select(e => new ExtensionInformation { Name = e.Header.Name, Identifier = e.Header.Identifier }).ToList();
+            extensionManager.InstallExtensions(extensionsToInstall);
+            extensionManager.UnInstallExtensions(extensionsToRemove);
         }
 
         private void LogMessage(string message)
         {
+            DebugPane.Activate();
             DebugPane.OutputString(string.Format("{0}: {1} \r\n",PackageName,message));
         }
 
@@ -188,16 +102,6 @@ namespace LatishSehgal.ExtensionSync
             }
         }
 
-        IVsExtensionManager ExtensionManager
-        {
-            get { return extensionManager ?? (extensionManager = GetService(typeof(SVsExtensionManager)) as IVsExtensionManager); }
-        }
-
-        IVsExtensionRepository ExtensionRepository
-        {
-            get { return extensionRepository ?? (extensionRepository = GetService(typeof(SVsExtensionRepository)) as IVsExtensionRepository); }
-        }
-
         string SettingsFilePath
         {
             get
@@ -206,6 +110,8 @@ namespace LatishSehgal.ExtensionSync
                 var directoryPath = page.DirectoryPath;
                 if (String.IsNullOrEmpty(directoryPath) || !Directory.Exists(directoryPath))
                 {
+                    LogMessage(string.Format("Invalid Directory configured for persisting settings. Defaulting to {0}",
+                                             UserLocalDataPath));
                     directoryPath = page.DirectoryPath = UserLocalDataPath;
                 }
                 return Path.Combine(directoryPath, SettingsFileName);
@@ -213,8 +119,7 @@ namespace LatishSehgal.ExtensionSync
         }
 
         IVsOutputWindowPane debugPane;
-        IVsExtensionManager extensionManager;
-        IVsExtensionRepository extensionRepository;
+        ExtensionManagerFacade extensionManager;
 
         const string PackageName = "ExtensionSync";
         const string SettingsFileName = "ExtensionSync.xml";

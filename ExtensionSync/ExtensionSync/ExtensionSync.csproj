@@ -123,6 +123,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ExtensionInformation.cs" />
+    <Compile Include="ExtensionManagerFacade.cs" />
     <Compile Include="Guids.cs" />
     <Compile Include="OptionsPage.cs">
       <SubType>Component</SubType>
@@ -142,6 +143,7 @@
     <Compile Include="ExtensionSyncPackage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="PkgCmdID.cs" />
+    <Compile Include="SettingsRepository.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="OptionsUserControl.resx">
