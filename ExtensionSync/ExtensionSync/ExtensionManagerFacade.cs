@@ -22,17 +22,16 @@ namespace LatishSehgal.ExtensionSync
         public List<ExtensionInformation> GetInstalledExtensionsInformation()
         {
             var installedExtensions = ExtensionManager.GetInstalledExtensions();
-            var userExtensions = installedExtensions.Where(ext => !ext.Header.SystemComponent).OrderBy(ext=>ext.Header.Name);
+            var userExtensions = installedExtensions.Where(ext => !ext.Header.SystemComponent).OrderBy(ext => ext.Header.Name);
             return userExtensions.Select(e => new ExtensionInformation { Name = e.Header.Name, Identifier = e.Header.Identifier }).ToList();
         }
 
         public void InstallExtensions(IEnumerable<ExtensionInformation> extensions)
         {
-            var query = ExtensionRepository.CreateQuery<VSGalleryEntry>(false, true);
-            query.ExecuteCompleted += query_ExecuteCompleted;
-
             foreach (var extension in extensions)
             {
+                var query = ExtensionRepository.CreateQuery<VSGalleryEntry>(false, true);
+                query.ExecuteCompleted += query_ExecuteCompleted;
                 query.SearchText = extension.Name;
                 query.ExecuteAsync(extension);
             }

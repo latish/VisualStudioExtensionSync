@@ -34,6 +34,7 @@ namespace LatishSehgal.ExtensionSync
 
         protected override void Dispose(bool disposing)
         {
+            //Hack: Really should be persisting the settings on DTE Shutdown, but could not get the event to fire as expected.
             PersistExtensionSettings();
             base.Dispose(disposing);
         }
