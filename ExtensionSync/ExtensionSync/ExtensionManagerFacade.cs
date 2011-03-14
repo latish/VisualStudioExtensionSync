@@ -13,8 +13,8 @@ namespace LatishSehgal.ExtensionSync
             ExtensionManager = visualStudioExtensionManager;
             ExtensionRepository = visualStudioExtensionRepository;
 
-            ExtensionRepository.DownloadCompleted += ExtensionRepository_DownloadCompleted;
-            ExtensionManager.InstallCompleted += ExtensionManager_InstallCompleted;
+            ExtensionRepository.DownloadCompleted += ExtensionRepositoryDownloadCompleted;
+            ExtensionManager.InstallCompleted += ExtensionManagerInstallCompleted;
         }
 
         public event Action<string> Log;
@@ -31,7 +31,7 @@ namespace LatishSehgal.ExtensionSync
             foreach (var extension in extensions)
             {
                 var query = ExtensionRepository.CreateQuery<VSGalleryEntry>(false, true);
-                query.ExecuteCompleted += query_ExecuteCompleted;
+                query.ExecuteCompleted += QueryExecuteCompleted;
                 query.SearchText = extension.Name;
                 query.ExecuteAsync(extension);
             }
@@ -42,16 +42,23 @@ namespace LatishSehgal.ExtensionSync
             var installedUserExtensions = ExtensionManager.GetInstalledExtensions().Where(e => !e.Header.SystemComponent);
             foreach (var extension in extensions)
             {
-                var extensionInformation = extension;
-                var userExtension = installedUserExtensions.Single(e => e.Header.Name == extensionInformation.Name && e.Header.Identifier == extensionInformation.Identifier);
-                if (userExtension == null) continue;
+                try
+                {
+                    var extensionInformation = extension;
+                    var userExtension = installedUserExtensions.Single(e => e.Header.Name == extensionInformation.Name && e.Header.Identifier == extensionInformation.Identifier);
+                    if (userExtension == null) continue;
 
-                LogMessage(string.Format("Uninstalling {0}", userExtension.Header.Name));
-                ExtensionManager.Uninstall(userExtension);
+                    LogMessage(string.Format("Uninstalling {0}", userExtension.Header.Name));
+                    ExtensionManager.Uninstall(userExtension);
+                }
+                catch (Exception exception)
+                {
+                    LogMessage(string.Format("Error while uninstalling {0}: {1}", extension.Name, exception.Message));
+                }
             }
         }
 
-        void query_ExecuteCompleted(object sender, ExecuteCompletedEventArgs e)
+        void QueryExecuteCompleted(object sender, ExecuteCompletedEventArgs e)
         {
             if (e.Error != null)
             {
@@ -69,7 +76,7 @@ namespace LatishSehgal.ExtensionSync
             ExtensionRepository.DownloadAsync(entry);
         }
 
-        void ExtensionRepository_DownloadCompleted(object sender, DownloadCompletedEventArgs e)
+        void ExtensionRepositoryDownloadCompleted(object sender, DownloadCompletedEventArgs e)
         {
             if (e.Error != null)
             {
@@ -83,7 +90,7 @@ namespace LatishSehgal.ExtensionSync
             ExtensionManager.InstallAsync(installableExtension, false);
         }
 
-        void ExtensionManager_InstallCompleted(object sender, InstallCompletedEventArgs e)
+        void ExtensionManagerInstallCompleted(object sender, InstallCompletedEventArgs e)
         {
             if (e.Error != null)
             {

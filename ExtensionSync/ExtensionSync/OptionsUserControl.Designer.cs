@@ -38,9 +38,9 @@
             // 
             this.txtPath.Location = new System.Drawing.Point(3, 22);
             this.txtPath.Name = "txtPath";
+            this.txtPath.ReadOnly = true;
             this.txtPath.Size = new System.Drawing.Size(390, 20);
             this.txtPath.TabIndex = 0;
-            this.txtPath.TextChanged += new System.EventHandler(this.txtPath_TextChanged);
             // 
             // btnBrowse
             // 
@@ -50,7 +50,7 @@
             this.btnBrowse.TabIndex = 1;
             this.btnBrowse.Text = "Browse...";
             this.btnBrowse.UseVisualStyleBackColor = true;
-            this.btnBrowse.Click += new System.EventHandler(this.btnBrowse_Click);
+            this.btnBrowse.Click += new System.EventHandler(this.BtnBrowseClick);
             // 
             // lblInstructions
             // 

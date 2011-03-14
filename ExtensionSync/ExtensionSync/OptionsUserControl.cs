@@ -10,20 +10,20 @@ namespace LatishSehgal.ExtensionSync
             InitializeComponent();
         }
 
-        internal OptionsPage optionsPage;
+        public OptionsPage OptionsPage { get; set; }
 
         public void Initialize()
         {
-            txtPath.Text = optionsPage.DirectoryPath;
+            txtPath.Text = OptionsPage.DirectoryPath;
         }
 
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
-            txtPath.Text = optionsPage.DirectoryPath;
+            txtPath.Text = OptionsPage.DirectoryPath;
         }
 
-        private void btnBrowse_Click(object sender, EventArgs e)
+        private void BtnBrowseClick(object sender, EventArgs e)
         {
             if (folderBrowserDialog.ShowDialog() != DialogResult.OK) return;
 
@@ -31,14 +31,9 @@ namespace LatishSehgal.ExtensionSync
             UpdateDirectoryPath();
         }
 
-        private void txtPath_TextChanged(object sender, EventArgs e)
-        {
-            UpdateDirectoryPath();
-        }
-
         void UpdateDirectoryPath()
         {
-            optionsPage.DirectoryPath = txtPath.Text;
+            OptionsPage.DirectoryPath = txtPath.Text;
         }
     }
 }

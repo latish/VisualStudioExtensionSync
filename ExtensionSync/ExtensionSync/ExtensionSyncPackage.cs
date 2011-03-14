@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using EnvDTE;
 using Microsoft.VisualStudio.ExtensionManager;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell.Interop;
@@ -16,32 +15,22 @@ namespace LatishSehgal.ExtensionSync
     [Guid(GuidList.guidExtensionSyncPkgString)]
     [ProvideOptionPage(typeof(OptionsPage),
         "Extension Sync", "General", 0, 0, true)]
-    public sealed class ExtensionSyncPackage : Package
+    public sealed class ExtensionSyncPackage : Package, IVsShellPropertyEvents
     {
         protected override void Initialize()
         {
             base.Initialize();
-
-            var vsExtensionManager = GetService(typeof(SVsExtensionManager)) as IVsExtensionManager;
-            var vsExtensionRepository = GetService(typeof(SVsExtensionRepository)) as IVsExtensionRepository;
-
-            extensionManager = new ExtensionManagerFacade(vsExtensionManager, vsExtensionRepository);
-            extensionManager.Log += LogMessage;
-            dte = ServiceProvider.GlobalProvider.GetService(typeof(SDTE)) as DTE;
-            var dteEvents = dte.Events.DTEEvents;
-            dteEvents.OnStartupComplete += OnStartupComplete;
+            var shellService = GetService(typeof(SVsShell)) as IVsShell;
+            if (shellService != null)
+                ErrorHandler.ThrowOnFailure(shellService.AdviseShellPropertyChanges(this, out cookie));
         }
 
         protected override void Dispose(bool disposing)
         {
-            //Hack: Really should be persisting the settings on DTE Shutdown, but could not get the event to fire as expected.
+            //Hack: Really should be persisting the settings on DTE Shutdown, but could not
+            //get the DTE events to fire as expected.
             PersistExtensionSettings();
             base.Dispose(disposing);
-        }
-
-        void OnStartupComplete()
-        {
-            SynchronizeExtensions();
         }
 
         void PersistExtensionSettings()
@@ -69,10 +58,41 @@ namespace LatishSehgal.ExtensionSync
             extensionManager.UnInstallExtensions(extensionsToRemove);
         }
 
+        void OptionsPageDirectoryPathUpdated(string obj)
+        {
+            SynchronizeExtensions();
+        }
+
         private void LogMessage(string message)
         {
             DebugPane.Activate();
             DebugPane.OutputString(string.Format("{0}: {1} \r\n", PackageName, message));
+        }
+
+        public int OnShellPropertyChange(int propid, object var)
+        {
+            if ((int)__VSSPROPID.VSSPROPID_Zombie == propid)
+            {
+                if ((bool)var == false)
+                {
+                    //Visual Studio is now ready and loaded up
+                    var shellService = GetService(typeof(SVsShell)) as IVsShell;
+                    if (shellService != null)
+                        ErrorHandler.ThrowOnFailure(shellService.UnadviseShellPropertyChanges(cookie));
+                    cookie = 0;
+                    optionsPage = (OptionsPage)GetDialogPage(typeof(OptionsPage));
+                    optionsPage.DirectoryPathUpdated += OptionsPageDirectoryPathUpdated;
+
+                    var vsExtensionManager = GetService(typeof(SVsExtensionManager)) as IVsExtensionManager;
+                    var vsExtensionRepository = GetService(typeof(SVsExtensionRepository)) as IVsExtensionRepository;
+
+                    extensionManager = new ExtensionManagerFacade(vsExtensionManager, vsExtensionRepository);
+                    extensionManager.Log += LogMessage;
+
+                    SynchronizeExtensions();
+                }
+            }
+            return VSConstants.S_OK;
         }
 
         private IVsOutputWindowPane DebugPane
@@ -94,21 +114,20 @@ namespace LatishSehgal.ExtensionSync
         {
             get
             {
-                var page = (OptionsPage)GetDialogPage(typeof(OptionsPage));
-                var directoryPath = page.DirectoryPath;
-                if (String.IsNullOrEmpty(directoryPath) || !Directory.Exists(directoryPath))
+                if (String.IsNullOrEmpty(optionsPage.DirectoryPath) || !Directory.Exists(optionsPage.DirectoryPath))
                 {
                     LogMessage(string.Format("Invalid Directory configured for persisting settings. Defaulting to {0}",
                                              UserLocalDataPath));
-                    directoryPath = page.DirectoryPath = UserLocalDataPath;
+                    optionsPage.DirectoryPath = UserLocalDataPath;
                 }
-                return Path.Combine(directoryPath, SettingsFileName);
+                return Path.Combine(optionsPage.DirectoryPath, SettingsFileName);
             }
         }
 
         IVsOutputWindowPane debugPane;
         ExtensionManagerFacade extensionManager;
-        DTE dte;
+        OptionsPage optionsPage;
+        uint cookie;
 
         const string PackageName = "ExtensionSync";
         const string SettingsFileName = "ExtensionSync.xml";
