@@ -8,13 +8,11 @@ namespace LatishSehgal.ExtensionSync
 {
     public class ExtensionManagerFacade
     {
+
         public ExtensionManagerFacade(IVsExtensionManager visualStudioExtensionManager, IVsExtensionRepository visualStudioExtensionRepository)
         {
             ExtensionManager = visualStudioExtensionManager;
             ExtensionRepository = visualStudioExtensionRepository;
-
-            ExtensionRepository.DownloadCompleted += ExtensionRepositoryDownloadCompleted;
-            ExtensionManager.InstallCompleted += ExtensionManagerInstallCompleted;
         }
 
         public event Action<string> Log;
@@ -28,6 +26,9 @@ namespace LatishSehgal.ExtensionSync
 
         public void InstallExtensions(IEnumerable<ExtensionInformation> extensions)
         {
+            ExtensionRepository.DownloadCompleted += ExtensionRepositoryDownloadCompleted;
+            ExtensionManager.InstallCompleted += ExtensionManagerInstallCompleted;
+
             foreach (var extension in extensions)
             {
                 var query = ExtensionRepository.CreateQuery<VSGalleryEntry>(false, true);
@@ -35,15 +36,29 @@ namespace LatishSehgal.ExtensionSync
                 query.SearchText = extension.Name;
                 query.ExecuteAsync(extension);
             }
+
+            //Hack:give it a minute to do its work and then unbind event handlers to prevent 
+            //them from firing when user interacts with Extension Manager in VS
+            var processingTimer = new System.Timers.Timer((MaxProcessingDuration));
+            processingTimer.Elapsed += (sender, e) =>
+                                           {
+                                               ExtensionRepository.DownloadCompleted -= ExtensionRepositoryDownloadCompleted;
+                                               ExtensionManager.InstallCompleted -= ExtensionManagerInstallCompleted;
+                                           };
+            processingTimer.Start();
         }
 
         public void UnInstallExtensions(IEnumerable<ExtensionInformation> extensions)
         {
-            var installedUserExtensions = ExtensionManager.GetInstalledExtensions().Where(e => !e.Header.SystemComponent);
+            var installedUserExtensions = ExtensionManager.GetInstalledExtensions().
+                    Where(e => !e.Header.SystemComponent);
             foreach (var extension in extensions)
             {
                 try
                 {
+                    if (extension.Name.Equals("ExtensionSync", StringComparison.InvariantCultureIgnoreCase))
+                        continue;
+
                     var extensionInformation = extension;
                     var userExtension = installedUserExtensions.Single(e => e.Header.Name == extensionInformation.Name && e.Header.Identifier == extensionInformation.Identifier);
                     if (userExtension == null) continue;
@@ -85,6 +100,11 @@ namespace LatishSehgal.ExtensionSync
             }
 
             var installableExtension = e.Payload;
+
+            var installedExtensions = GetInstalledExtensionsInformation();
+            if (installedExtensions.Any(i => i.Name == installableExtension.Header.Name && i.Identifier == installableExtension.Header.Identifier))
+                return;
+
             if (installableExtension == null)
                 return;
             ExtensionManager.InstallAsync(installableExtension, false);
@@ -108,5 +128,7 @@ namespace LatishSehgal.ExtensionSync
 
         IVsExtensionManager ExtensionManager { get; set; }
         IVsExtensionRepository ExtensionRepository { get; set; }
+
+        private const int MaxProcessingDuration = 40000;
     }
 }
