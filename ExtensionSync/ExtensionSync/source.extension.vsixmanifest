@@ -4,8 +4,11 @@
     <Name>ExtensionSync</Name>
     <Author>Latish Sehgal</Author>
     <Version>0.1.0</Version>
-    <Description xml:space="preserve">Information about my package</Description>
+    <Description xml:space="preserve">Allows you to synchronize Visual Studio extensions between multiple instances.</Description>
     <Locale>1033</Locale>
+    <License>License</License>
+    <Icon>ExtensionSync.png</Icon>
+    <PreviewImage>ExtensionSync.png</PreviewImage>
     <InstalledByMsi>false</InstalledByMsi>
     <SupportedProducts>
       <VisualStudio Version="10.0">
