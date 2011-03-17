@@ -20,7 +20,7 @@ namespace LatishSehgal.ExtensionSync
         public List<ExtensionInformation> GetInstalledExtensionsInformation()
         {
             var installedExtensions = ExtensionManager.GetInstalledExtensions();
-            var userExtensions = installedExtensions.Where(ext => !ext.Header.SystemComponent).OrderBy(ext => ext.Header.Name);
+            var userExtensions = installedExtensions.Where(ext => !ext.Header.SystemComponent && !ext.Header.InstalledByMsi ).OrderBy(ext => ext.Header.Name);
             return userExtensions.Select(e => new ExtensionInformation { Name = e.Header.Name, Identifier = e.Header.Identifier }).ToList();
         }
 
@@ -37,7 +37,7 @@ namespace LatishSehgal.ExtensionSync
                 query.ExecuteAsync(extension);
             }
 
-            //Hack:give it a minute to do its work and then unbind event handlers to prevent 
+            //Hack:give it a a few seconds to do its work and then unbind event handlers to prevent 
             //them from firing when user interacts with Extension Manager in VS
             var processingTimer = new System.Timers.Timer((MaxProcessingDuration));
             processingTimer.Elapsed += (sender, e) =>
@@ -60,7 +60,7 @@ namespace LatishSehgal.ExtensionSync
                         continue;
 
                     var extensionInformation = extension;
-                    var userExtension = installedUserExtensions.Single(e => e.Header.Name == extensionInformation.Name && e.Header.Identifier == extensionInformation.Identifier);
+                    var userExtension = installedUserExtensions.SingleOrDefault(e => e.Header.Name == extensionInformation.Name && e.Header.Identifier == extensionInformation.Identifier);
                     if (userExtension == null) continue;
 
                     LogMessage(string.Format("Uninstalling {0}", userExtension.Header.Name));
@@ -82,7 +82,7 @@ namespace LatishSehgal.ExtensionSync
             }
 
             var extensionInformation = (ExtensionInformation)e.UserState;
-            var entry = e.Results.Cast<VSGalleryEntry>().Single(r => r.Name == extensionInformation.Name && r.VsixID == extensionInformation.Identifier);
+            var entry = e.Results.Cast<VSGalleryEntry>().SingleOrDefault(r => r.Name == extensionInformation.Name && r.VsixID == extensionInformation.Identifier) ;
             if (entry == null)
             {
                 LogMessage(string.Format("Could not find {0} in Online Repository", extensionInformation.Name));
@@ -129,6 +129,6 @@ namespace LatishSehgal.ExtensionSync
         IVsExtensionManager ExtensionManager { get; set; }
         IVsExtensionRepository ExtensionRepository { get; set; }
 
-        private const int MaxProcessingDuration = 40000;
+        private const int MaxProcessingDuration = 30000;
     }
 }

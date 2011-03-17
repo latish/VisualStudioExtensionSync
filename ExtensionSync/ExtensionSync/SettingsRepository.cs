@@ -19,7 +19,7 @@ namespace LatishSehgal.ExtensionSync
         {
             var installedExtensionsInformation = extensionManager.GetInstalledExtensionsInformation();
 
-            using (var fileStream = new FileStream(settingsFilePath, FileMode.Create))
+            using (var fileStream = new FileStream(settingsFilePath, FileMode.Create,FileAccess.ReadWrite,FileShare.Read))
             {
                 var serializer = new XmlSerializer(typeof(List<ExtensionInformation>));
                 serializer.Serialize(fileStream, installedExtensionsInformation);
@@ -33,7 +33,7 @@ namespace LatishSehgal.ExtensionSync
             {
                 if (File.Exists(settingsFilePath))
                 {
-                    using (var fileStream = new FileStream(settingsFilePath, FileMode.Open))
+                    using (var fileStream = new FileStream(settingsFilePath, FileMode.Open,FileAccess.Read,FileShare.ReadWrite))
                     {
                         var serializer = new XmlSerializer(typeof(List<ExtensionInformation>));
                         settings = (List<ExtensionInformation>)serializer.Deserialize(fileStream);
