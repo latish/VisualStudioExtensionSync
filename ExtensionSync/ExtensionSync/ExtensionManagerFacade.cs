@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Timers;
 using Microsoft.VisualStudio.ExtensionManager;
 using Microsoft.VisualStudio.ExtensionManager.UI;
 
@@ -26,26 +27,33 @@ namespace LatishSehgal.ExtensionSync
 
         public void InstallExtensions(IEnumerable<ExtensionInformation> extensions)
         {
-            ExtensionRepository.DownloadCompleted += ExtensionRepositoryDownloadCompleted;
-            ExtensionManager.InstallCompleted += ExtensionManagerInstallCompleted;
-
-            foreach (var extension in extensions)
+            try
             {
-                var query = ExtensionRepository.CreateQuery<VSGalleryEntry>(false, true);
-                query.ExecuteCompleted += QueryExecuteCompleted;
-                query.SearchText = extension.Name;
-                query.ExecuteAsync(extension);
-            }
+                ExtensionRepository.DownloadCompleted += ExtensionRepositoryDownloadCompleted;
+                ExtensionManager.InstallCompleted += ExtensionManagerInstallCompleted;
 
-            //Hack:give it a a few seconds to do its work and then unbind event handlers to prevent 
-            //them from firing when user interacts with Extension Manager in VS
-            var processingTimer = new System.Timers.Timer((MaxProcessingDuration));
-            processingTimer.Elapsed += (sender, e) =>
-                                           {
-                                               ExtensionRepository.DownloadCompleted -= ExtensionRepositoryDownloadCompleted;
-                                               ExtensionManager.InstallCompleted -= ExtensionManagerInstallCompleted;
-                                           };
-            processingTimer.Start();
+                foreach (var extension in extensions)
+                {
+                    var query = ExtensionRepository.CreateQuery<VSGalleryEntry>(false, true).OrderByDescending(v=>v.Ranking).Skip(0).Take(25) as IVsExtensionRepositoryQuery<VSGalleryEntry>;
+                    query.ExecuteCompleted += QueryExecuteCompleted;
+                    query.SearchText = extension.Name;
+                    query.ExecuteAsync(extension);
+                }
+
+                //Hack:give it a a few seconds to do its work and then unbind event handlers to prevent 
+                //them from firing when user interacts with Extension Manager in VS
+                var processingTimer = new Timer((MaxProcessingDuration));
+                processingTimer.Elapsed += (sender, e) =>
+                    {
+                        ExtensionRepository.DownloadCompleted -= ExtensionRepositoryDownloadCompleted;
+                        ExtensionManager.InstallCompleted -= ExtensionManagerInstallCompleted;
+                    };
+                processingTimer.Start();
+            }
+            catch (Exception exception)
+            {
+                LogMessage(string.Format("Error while installing extensions: {0}",exception.Message));
+            }
         }
 
         public void UnInstallExtensions(IEnumerable<ExtensionInformation> extensions)
@@ -75,39 +83,53 @@ namespace LatishSehgal.ExtensionSync
 
         void QueryExecuteCompleted(object sender, ExecuteCompletedEventArgs e)
         {
-            if (e.Error != null)
+            try
             {
-                LogMessage(string.Format("Error while searching online for extension: {0}", e.Error.Message));
-                return;
-            }
+                if (e.Error != null)
+                {
+                    LogMessage(string.Format("Error while searching online for extension: {0}", e.Error.Message));
+                    return;
+                }
 
-            var extensionInformation = (ExtensionInformation)e.UserState;
-            var entry = e.Results.Cast<VSGalleryEntry>().SingleOrDefault(r => r.Name == extensionInformation.Name && r.VsixID == extensionInformation.Identifier) ;
-            if (entry == null)
-            {
-                LogMessage(string.Format("Could not find {0} in Online Repository", extensionInformation.Name));
-                return;
+                var extensionInformation = (ExtensionInformation)e.UserState;
+                var entry = e.Results.Cast<VSGalleryEntry>().SingleOrDefault(r => r.Name == extensionInformation.Name && r.VsixID == extensionInformation.Identifier) ;
+                if (entry == null)
+                {
+                    LogMessage(string.Format("Could not find {0} in Online Repository", extensionInformation.Name));
+                    return;
+                }
+                ExtensionRepository.DownloadAsync(entry);
             }
-            ExtensionRepository.DownloadAsync(entry);
+            catch (Exception exception)
+            {
+                LogMessage(string.Format("Error while installing extensions: {0}", exception.Message));
+            }
         }
 
         void ExtensionRepositoryDownloadCompleted(object sender, DownloadCompletedEventArgs e)
         {
-            if (e.Error != null)
+            try
             {
-                LogMessage(string.Format("Error while downloading extension: {0}", e.Error.Message));
-                return;
+                if (e.Error != null)
+                {
+                    LogMessage(string.Format("Error while downloading extension: {0}", e.Error.Message));
+                    return;
+                }
+
+                var installableExtension = e.Payload;
+
+                var installedExtensions = GetInstalledExtensionsInformation();
+                if (installedExtensions.Any(i => i.Name == installableExtension.Header.Name && i.Identifier == installableExtension.Header.Identifier))
+                    return;
+
+                if (installableExtension == null)
+                    return;
+                ExtensionManager.InstallAsync(installableExtension, false);
             }
-
-            var installableExtension = e.Payload;
-
-            var installedExtensions = GetInstalledExtensionsInformation();
-            if (installedExtensions.Any(i => i.Name == installableExtension.Header.Name && i.Identifier == installableExtension.Header.Identifier))
-                return;
-
-            if (installableExtension == null)
-                return;
-            ExtensionManager.InstallAsync(installableExtension, false);
+            catch (Exception exception)
+            {
+                LogMessage(string.Format("Error while installing extensions: {0}", exception.Message));
+            }
         }
 
         void ExtensionManagerInstallCompleted(object sender, InstallCompletedEventArgs e)
