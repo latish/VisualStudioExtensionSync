@@ -51,8 +51,8 @@ namespace LatishSehgal.ExtensionSync
 
             var installedUserExtensions = extensionManager.GetInstalledExtensionsInformation();
 
-            var extensionsToInstall = persistedExtensionSettings.Except(installedUserExtensions);
-            var extensionsToRemove = installedUserExtensions.Except(persistedExtensionSettings);
+            var extensionsToInstall = persistedExtensionSettings.Except(installedUserExtensions).ToList();
+            var extensionsToRemove = installedUserExtensions.Except(persistedExtensionSettings).ToList();
 
             extensionManager.InstallExtensions(extensionsToInstall);
             extensionManager.UnInstallExtensions(extensionsToRemove);
