@@ -12,10 +12,16 @@ namespace LatishSehgal.ExtensionSync
     public class OptionsPage : DialogPage
     {
         private OptionsUserControl optionsWindow;
-        public event Action<string> DirectoryPathUpdated;
+        public event Action<string> SettingsDirectoryPathUpdated;
 
         [Category("Extension Sync"), DisplayName(@"Extensions File Path"), Description("Directory used to persist Extension Information")]
-        public string DirectoryPath { get; set; }
+        public string SettingsDirectoryPath { get; set; }
+
+        [Category("Extension Sync"), DisplayName(@"Log File Path"), Description("Directory used to store log file")]
+        public string LogDirectoryPath { get; set; }
+
+        [Category("Extension Sync"), DisplayName(@"Logging Enabled "), Description("Enable or disable logging")]
+        public bool LoggingEnabled { get; set; }
 
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -32,14 +38,14 @@ namespace LatishSehgal.ExtensionSync
         protected override void OnApply(PageApplyEventArgs e)
         {
             base.OnApply(e);
-            OnDirectoryPathUpdated(DirectoryPath);
+            OnSettingsDirectoryPathUpdated(SettingsDirectoryPath);
         }
 
 
-        void OnDirectoryPathUpdated(string path)
+        void OnSettingsDirectoryPathUpdated(string path)
         {
-            if (DirectoryPathUpdated != null)
-                DirectoryPathUpdated.Invoke(path);
+            if (SettingsDirectoryPathUpdated != null)
+                SettingsDirectoryPathUpdated.Invoke(path);
         }
     }
 }

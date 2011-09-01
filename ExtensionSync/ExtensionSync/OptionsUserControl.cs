@@ -14,26 +14,41 @@ namespace LatishSehgal.ExtensionSync
 
         public void Initialize()
         {
-            txtPath.Text = OptionsPage.DirectoryPath;
+            UpdatePathTextBoxes();
         }
 
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
-            txtPath.Text = OptionsPage.DirectoryPath;
+            UpdatePathTextBoxes();
         }
 
-        private void BtnBrowseClick(object sender, EventArgs e)
+        private void UpdatePathTextBoxes()
+        {
+            txtSettingsFilePath.Text = OptionsPage.SettingsDirectoryPath;
+            txtLogPath.Text = OptionsPage.LogDirectoryPath;
+        }
+
+        private void BtnBrowseSettingsPathClick(object sender, EventArgs e)
         {
             if (folderBrowserDialog.ShowDialog() != DialogResult.OK) return;
 
-            txtPath.Text = folderBrowserDialog.SelectedPath;
-            UpdateDirectoryPath();
+            txtSettingsFilePath.Text = folderBrowserDialog.SelectedPath;
+            OptionsPage.SettingsDirectoryPath = txtSettingsFilePath.Text;
         }
 
-        void UpdateDirectoryPath()
+        private void BtnBrowseLogFilePathClick(object sender, EventArgs e)
         {
-            OptionsPage.DirectoryPath = txtPath.Text;
+            if (folderBrowserDialog.ShowDialog() != DialogResult.OK) return;
+
+            txtLogPath.Text = folderBrowserDialog.SelectedPath;
+            OptionsPage.LogDirectoryPath = txtLogPath.Text;
+        }
+
+        private void CbxEnableLoggingCheckedChanged(object sender, EventArgs e)
+        {
+                btnBrowseLogFilePath.Enabled = cbxEnableLogging.Checked;
+                txtLogPath.Text = string.Empty;
         }
     }
 }

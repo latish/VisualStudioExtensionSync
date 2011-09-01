@@ -58,7 +58,7 @@ namespace LatishSehgal.ExtensionSync
             extensionManager.UnInstallExtensions(extensionsToRemove);
         }
 
-        void OptionsPageDirectoryPathUpdated(string obj)
+        void OptionsPageSettingsDirectoryPathUpdated(string obj)
         {
             SynchronizeExtensions();
         }
@@ -81,7 +81,7 @@ namespace LatishSehgal.ExtensionSync
                         ErrorHandler.ThrowOnFailure(shellService.UnadviseShellPropertyChanges(cookie));
                     cookie = 0;
                     optionsPage = (OptionsPage)GetDialogPage(typeof(OptionsPage));
-                    optionsPage.DirectoryPathUpdated += OptionsPageDirectoryPathUpdated;
+                    optionsPage.SettingsDirectoryPathUpdated += OptionsPageSettingsDirectoryPathUpdated;
 
                     var vsExtensionManager = GetService(typeof(SVsExtensionManager)) as IVsExtensionManager;
                     var vsExtensionRepository = GetService(typeof(SVsExtensionRepository)) as IVsExtensionRepository;
@@ -114,13 +114,13 @@ namespace LatishSehgal.ExtensionSync
         {
             get
             {
-                if (String.IsNullOrEmpty(optionsPage.DirectoryPath) || !Directory.Exists(optionsPage.DirectoryPath))
+                if (String.IsNullOrEmpty(optionsPage.SettingsDirectoryPath) || !Directory.Exists(optionsPage.SettingsDirectoryPath))
                 {
                     LogMessage(string.Format("Invalid Directory configured for persisting settings. Defaulting to {0}",
                                              UserLocalDataPath));
-                    optionsPage.DirectoryPath = UserLocalDataPath;
+                    optionsPage.SettingsDirectoryPath = UserLocalDataPath;
                 }
-                return Path.Combine(optionsPage.DirectoryPath, SettingsFileName);
+                return Path.Combine(optionsPage.SettingsDirectoryPath, SettingsFileName);
             }
         }
 
