@@ -6,8 +6,11 @@ using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Shell;
 using System.Linq;
+using log4net;
+using log4net.Appender;
+using log4net.Config;
 
-namespace LatishSehgal.ExtensionSync
+namespace ExtensionSync
 {
     [ProvideAutoLoad("ADFC4E64-0397-11D1-9F4E-00A0C911004F")]
     [PackageRegistration(UseManagedResourcesOnly = true)]
@@ -23,6 +26,21 @@ namespace LatishSehgal.ExtensionSync
             var shellService = GetService(typeof(SVsShell)) as IVsShell;
             if (shellService != null)
                 ErrorHandler.ThrowOnFailure(shellService.AdviseShellPropertyChanges(this, out cookie));
+
+            logger = LogManager.GetLogger(typeof(ExtensionSyncPackage));
+        }
+
+        void SetUpLogger()
+        {
+            XmlConfigurator.Configure(GetType().Assembly.GetManifestResourceStream("ExtensionSync.Log4Net.xml"));
+
+            var h = (log4net.Repository.Hierarchy.Hierarchy) LogManager.GetRepository();
+            foreach (var fa in h.Root.Appenders.OfType<FileAppender>())
+            {
+                fa.File = LogFilePath;
+                fa.ActivateOptions();
+                break;
+            }
         }
 
         protected override void Dispose(bool disposing)
@@ -63,10 +81,13 @@ namespace LatishSehgal.ExtensionSync
             SynchronizeExtensions();
         }
 
-        private void LogMessage(string message)
+        void LogMessage(string message)
         {
             DebugPane.Activate();
             DebugPane.OutputString(string.Format("{0}: {1} \r\n", PackageName, message));
+
+            if(optionsPage.LoggingEnabled)
+                logger.Info(message);
         }
 
         public int OnShellPropertyChange(int propid, object var)
@@ -88,6 +109,8 @@ namespace LatishSehgal.ExtensionSync
 
                     extensionManager = new ExtensionManagerFacade(vsExtensionManager, vsExtensionRepository);
                     extensionManager.Log += LogMessage;
+
+                    SetUpLogger();
 
                     SynchronizeExtensions();
                 }
@@ -124,12 +147,26 @@ namespace LatishSehgal.ExtensionSync
             }
         }
 
+        string LogFilePath
+        {
+            get
+            {
+                if (String.IsNullOrEmpty(optionsPage.LogDirectoryPath) || !Directory.Exists(optionsPage.LogDirectoryPath))
+                {
+                    optionsPage.LogDirectoryPath = Path.GetDirectoryName(SettingsFilePath);
+                }
+                return Path.Combine(optionsPage.LogDirectoryPath, LogFileName);
+            }
+        }
+
         IVsOutputWindowPane debugPane;
         ExtensionManagerFacade extensionManager;
         OptionsPage optionsPage;
         uint cookie;
+        private ILog logger;
 
         const string PackageName = "ExtensionSync";
         const string SettingsFileName = "ExtensionSync.xml";
+        const string LogFileName = "ExtensionSync.log";
     }
 }

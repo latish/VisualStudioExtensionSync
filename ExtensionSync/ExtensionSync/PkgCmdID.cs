@@ -2,7 +2,7 @@
 // MUST match PkgCmdID.h
 using System;
 
-namespace LatishSehgal.ExtensionSync
+namespace ExtensionSync
 {
     static class PkgCmdIDList
     {

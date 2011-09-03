@@ -5,7 +5,7 @@ using System.Timers;
 using Microsoft.VisualStudio.ExtensionManager;
 using Microsoft.VisualStudio.ExtensionManager.UI;
 
-namespace LatishSehgal.ExtensionSync
+namespace ExtensionSync
 {
     public class ExtensionManagerFacade
     {

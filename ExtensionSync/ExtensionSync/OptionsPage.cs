@@ -4,7 +4,7 @@ using System.ComponentModel;
 using Microsoft.VisualStudio.Shell;
 using System.Windows.Forms;
 
-namespace LatishSehgal.ExtensionSync
+namespace ExtensionSync
 {
     [ClassInterface(ClassInterfaceType.AutoDual)]
     [CLSCompliant(false), ComVisible(true)]

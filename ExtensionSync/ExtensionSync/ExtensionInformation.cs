@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace LatishSehgal.ExtensionSync
+namespace ExtensionSync
 {
     public class ExtensionInformation : IEquatable<ExtensionInformation>
     {

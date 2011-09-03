@@ -1,4 +1,4 @@
-﻿namespace LatishSehgal.ExtensionSync
+﻿namespace ExtensionSync
 {
     partial class OptionsUserControl
     {

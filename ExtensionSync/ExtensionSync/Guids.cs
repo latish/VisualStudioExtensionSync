@@ -2,7 +2,7 @@
 // MUST match guids.h
 using System;
 
-namespace LatishSehgal.ExtensionSync
+namespace ExtensionSync
 {
     static class GuidList
     {

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Windows.Forms;
 
-namespace LatishSehgal.ExtensionSync
+namespace ExtensionSync
 {
     public partial class OptionsUserControl : UserControl
     {
@@ -15,6 +15,8 @@ namespace LatishSehgal.ExtensionSync
         public void Initialize()
         {
             UpdatePathTextBoxes();
+            cbxEnableLogging.Checked = OptionsPage.LoggingEnabled;
+            btnBrowseLogFilePath.Enabled = cbxEnableLogging.Checked;
         }
 
         protected override void OnLoad(EventArgs e)
@@ -47,8 +49,8 @@ namespace LatishSehgal.ExtensionSync
 
         private void CbxEnableLoggingCheckedChanged(object sender, EventArgs e)
         {
-                btnBrowseLogFilePath.Enabled = cbxEnableLogging.Checked;
-                txtLogPath.Text = string.Empty;
+            OptionsPage.LoggingEnabled = cbxEnableLogging.Checked;
+            btnBrowseLogFilePath.Enabled = cbxEnableLogging.Checked;
         }
     }
 }
