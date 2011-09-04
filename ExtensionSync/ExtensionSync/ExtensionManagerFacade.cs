@@ -27,6 +27,9 @@ namespace ExtensionSync
             var userExtensions = installedExtensions.Where(ext => 
                         !ext.Header.SystemComponent && !ext.Header.InstalledByMsi)
                         .OrderBy(ext => ext.Header.Name);
+
+            //userExtensions.ToList().ForEach(u=>LogMessage(string.Format("{0} - {1}",u.Header.Name,u.State)));
+
             return userExtensions.Select(
                     e => new ExtensionInformation { Name = e.Header.Name, Identifier = e.Header.Identifier })
                     .ToList();
@@ -82,13 +85,17 @@ namespace ExtensionSync
             }
         }
 
-        public void UnInstallExtensions(List<ExtensionInformation> extensions)
+        public void UnInstallExtensions(List<ExtensionInformation> extensions, DateTimeOffset configUpdateDateTime)
         {
             if (extensions == null || extensions.Count == 0)
                 return;
 
             var installedUserExtensions = ExtensionManager.GetInstalledExtensions().
                                     Where(e => !e.Header.SystemComponent).ToList();
+
+            var extensionsInstalledAfterConfigUpdated = installedUserExtensions
+                            .Where(i => i.InstalledOn > configUpdateDateTime).ToList();
+
             foreach (var extension in extensions)
             {
                 try
@@ -102,6 +109,13 @@ namespace ExtensionSync
                             e.Header.Name == extensionInformation.Name &&
                             e.Header.Identifier == extensionInformation.Identifier);
                     if (userExtension == null) continue;
+
+                    if(extensionsInstalledAfterConfigUpdated.Contains(userExtension))
+                    {
+                        LogMessage(string.Format("Not uninstalling {0} since it was installed after last update to config file."
+                            , userExtension.Header.Name));
+                        continue;
+                    }
 
                     LogMessage(string.Format("Uninstalling {0}", userExtension.Header.Name));
                     ExtensionManager.Uninstall(userExtension);

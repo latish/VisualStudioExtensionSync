@@ -61,7 +61,8 @@ namespace ExtensionSync
             var extensionsToRemove = installedUserExtensions.Except(persistedExtensionSettings).ToList();
 
             extensionManager.InstallExtensions(extensionsToInstall);
-            extensionManager.UnInstallExtensions(extensionsToRemove);
+            var settingsFileUpdateDate = File.GetLastWriteTime(SettingsFilePath);
+            extensionManager.UnInstallExtensions(extensionsToRemove,settingsFileUpdateDate);
         }
 
         void OptionsPageSettingsDirectoryPathUpdated(string path)
