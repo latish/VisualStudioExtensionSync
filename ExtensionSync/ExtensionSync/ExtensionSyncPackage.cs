@@ -30,23 +30,11 @@ namespace ExtensionSync
             logger = LogManager.GetLogger(typeof(ExtensionSyncPackage));
         }
 
-        void SetUpLogger()
-        {
-            XmlConfigurator.Configure(GetType().Assembly.GetManifestResourceStream("ExtensionSync.Log4Net.xml"));
-
-            var h = (log4net.Repository.Hierarchy.Hierarchy) LogManager.GetRepository();
-            foreach (var fa in h.Root.Appenders.OfType<FileAppender>())
-            {
-                fa.File = LogFilePath;
-                fa.ActivateOptions();
-                break;
-            }
-        }
-
         protected override void Dispose(bool disposing)
         {
             //Hack: Really should be persisting the settings on DTE Shutdown, but could not
             //get the DTE events to fire as expected.
+            CleanUpFileWatcher();
             PersistExtensionSettings();
             base.Dispose(disposing);
         }
@@ -76,9 +64,19 @@ namespace ExtensionSync
             extensionManager.UnInstallExtensions(extensionsToRemove);
         }
 
-        void OptionsPageSettingsDirectoryPathUpdated(string obj)
+        void OptionsPageSettingsDirectoryPathUpdated(string path)
         {
+            CleanUpFileWatcher();
+            SetupFileWatcher();
+
             SynchronizeExtensions();
+        }
+
+        private void CleanUpFileWatcher()
+        {
+            fileWatcher.EnableRaisingEvents = false;
+            fileWatcher.Changed -= (s, e) => SynchronizeExtensions();
+            fileWatcher.Dispose();
         }
 
         void LogMessage(string message)
@@ -86,7 +84,7 @@ namespace ExtensionSync
             DebugPane.Activate();
             DebugPane.OutputString(string.Format("{0}: {1} \r\n", PackageName, message));
 
-            if(optionsPage.LoggingEnabled)
+            if (optionsPage.LoggingEnabled)
                 logger.Info(message);
         }
 
@@ -101,6 +99,7 @@ namespace ExtensionSync
                     if (shellService != null)
                         ErrorHandler.ThrowOnFailure(shellService.UnadviseShellPropertyChanges(cookie));
                     cookie = 0;
+
                     optionsPage = (OptionsPage)GetDialogPage(typeof(OptionsPage));
                     optionsPage.SettingsDirectoryPathUpdated += OptionsPageSettingsDirectoryPathUpdated;
 
@@ -110,12 +109,23 @@ namespace ExtensionSync
                     extensionManager = new ExtensionManagerFacade(vsExtensionManager, vsExtensionRepository);
                     extensionManager.Log += LogMessage;
 
+                    SetupFileWatcher();
                     SetUpLogger();
-
                     SynchronizeExtensions();
                 }
             }
             return VSConstants.S_OK;
+        }
+
+        private void SetupFileWatcher()
+        {
+            fileWatcher = new FileSystemWatcher
+                              {
+                                  Path = Path.GetDirectoryName(SettingsFilePath),
+                                  Filter = SettingsFileName
+                              };
+            fileWatcher.Changed += (s, e) => SynchronizeExtensions();
+            fileWatcher.EnableRaisingEvents = true;
         }
 
         private IVsOutputWindowPane DebugPane
@@ -159,11 +169,25 @@ namespace ExtensionSync
             }
         }
 
+        void SetUpLogger()
+        {
+            XmlConfigurator.Configure(GetType().Assembly.GetManifestResourceStream("ExtensionSync.Log4Net.xml"));
+
+            var h = (log4net.Repository.Hierarchy.Hierarchy)LogManager.GetRepository();
+            foreach (var fa in h.Root.Appenders.OfType<FileAppender>())
+            {
+                fa.File = LogFilePath;
+                fa.ActivateOptions();
+                break;
+            }
+        }
+
         IVsOutputWindowPane debugPane;
         ExtensionManagerFacade extensionManager;
         OptionsPage optionsPage;
         uint cookie;
         private ILog logger;
+        private FileSystemWatcher fileWatcher;
 
         const string PackageName = "ExtensionSync";
         const string SettingsFileName = "ExtensionSync.xml";
