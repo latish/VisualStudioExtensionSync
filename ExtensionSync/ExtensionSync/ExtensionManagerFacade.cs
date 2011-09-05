@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Timers;
 using Microsoft.VisualStudio.ExtensionManager;
 using Microsoft.VisualStudio.ExtensionManager.UI;
 
@@ -15,8 +14,6 @@ namespace ExtensionSync
         {
             ExtensionManager = visualStudioExtensionManager;
             ExtensionRepository = visualStudioExtensionRepository;
-
-            processingTimer.Elapsed += (sender, e) => ClearExtensionManagerEventHandlers();
         }
 
         public event Action<string> Log;
@@ -45,14 +42,8 @@ namespace ExtensionSync
 
             try
             {
-                extensionsBeingInstalled.Clear();
-                ExtensionRepository.DownloadCompleted += ExtensionRepositoryDownloadCompleted;
-                ExtensionManager.InstallCompleted += ExtensionManagerInstallCompleted;
-
                 foreach (var extension in extensions)
                 {
-                    extensionsBeingInstalled.Add(extension.Name);
-
                     var query = ExtensionRepository.CreateQuery<VSGalleryEntry>(false, true)
                                 .OrderByDescending(v => v.Ranking)
                                 .Skip(0)
@@ -63,28 +54,10 @@ namespace ExtensionSync
                     query.SearchText = extension.Name;
                     query.ExecuteAsync(extension);
                 }
-
-                //Give it a a minute to do its work. If everything goes smoothly, event handlers should unbind.
-                // Make a safety check and remove handlers if not already done
-                processingTimer.Start();
             }
             catch (Exception exception)
             {
                 LogMessage(string.Format("Error while installing extensions: {0}", exception.Message));
-            }
-        }
-
-        private void ClearExtensionManagerEventHandlers()
-        {
-            lock (this)
-            {
-                if (eventHandlersCleared) return;
-
-                eventHandlersCleared = true;
-                ExtensionRepository.DownloadCompleted -= ExtensionRepositoryDownloadCompleted;
-                ExtensionManager.InstallCompleted -= ExtensionManagerInstallCompleted;
-
-                processingTimer.Stop();
             }
         }
 
@@ -138,115 +111,53 @@ namespace ExtensionSync
                 }
 
                 var extensionInformation = (ExtensionInformation)e.UserState;
+                var extensionName = extensionInformation.Name;
                 var entry =
                     e.Results.Cast<VSGalleryEntry>().SingleOrDefault(r =>
                         r.Name == extensionInformation.Name && r.VsixID == extensionInformation.Identifier);
                 if (entry == null)
                 {
-                    LogMessage(string.Format("Could not find {0} in Online Repository", extensionInformation.Name));
-                    ExtensionInstallDone(extensionInformation.Name);
+                    LogMessage(string.Format("Could not find {0} in Online Repository", extensionName));
                     return;
                 }
-
-                if (AutoUpdateExtensions)
-                {
-                    var installedExtensions = GetInstalledExtensionsInformation();
-                    var installedExtension = installedExtensions.FirstOrDefault(ext => ext.Name == extensionInformation.Name
-                                         &&
-                                         ext.Identifier ==
-                                         extensionInformation.Identifier);
-                    if (installedExtension != null && installedExtension.Version.ToString() == entry.VsixVersion)
-                    {
-                        ExtensionInstallDone(extensionInformation.Name);
-                        return;
-                    }
-                }
-
-                ExtensionRepository.DownloadAsync(entry);
-            }
-            catch (Exception exception)
-            {
-                LogMessage(string.Format("Error while installing extensions: {0}", exception.Message));
-            }
-        }
-
-        private void ExtensionRepositoryDownloadCompleted(object sender, DownloadCompletedEventArgs e)
-        {
-            try
-            {
-                if (e.Error != null)
-                {
-                    LogMessage(string.Format("Error while downloading extension: {0}", e.Error.Message));
-                    return;
-                }
-
-                var installableExtension = e.Payload;
-                if (installableExtension == null)
-                    return;
 
                 var installedExtensions = GetInstalledExtensionsInformation();
-                var extensionName = installableExtension.Header.Name;
-                var installedExtension = installedExtensions.FirstOrDefault(i =>
-                                                                            i.Name == extensionName &&
-                                                                            i.Identifier ==
-                                                                            installableExtension.Header.Identifier);
-
-                if (installedExtension != null)
+                var installedExtension = installedExtensions.FirstOrDefault(ext => ext.Name == extensionName
+                                    &&
+                                    ext.Identifier ==
+                                    extensionInformation.Identifier);
+                if (AutoUpdateExtensions)
                 {
-                    if (installedExtension.Version >= installableExtension.Header.Version)
-                    {
-                        ExtensionInstallDone(extensionName);
+                    if (installedExtension != null && installedExtension.Version.ToString() == entry.VsixVersion)
                         return;
-                    }
-                    //extension needs to be updated - uninstall and install again
-                    LogMessage(string.Format("{0} has an update available.", extensionName));
-                    UnInstallExtensions(new List<ExtensionInformation> { installedExtension }, DateTime.Now);
                 }
 
-                ExtensionManager.InstallAsync(installableExtension, false);
+                try
+                {
+                    var installableExtension = ExtensionRepository.Download(entry);
+                    if (installableExtension == null)
+                        return;
+
+                    if (installedExtension != null)
+                    {
+                        if (installedExtension.Version >= installableExtension.Header.Version)
+                            return;
+                        //extension needs to be updated - uninstall and install again
+                        LogMessage(string.Format("{0} has an update available.", extensionName));
+                        UnInstallExtensions(new List<ExtensionInformation> { installedExtension }, DateTime.Now);
+                    }
+
+                    ExtensionManager.Install(installableExtension, false);
+                    LogMessage(string.Format("Installed {0}", extensionName));
+                }
+                catch (Exception exception)
+                {
+                    LogMessage(string.Format("Error while installing {0}: {1}", extensionName, exception.Message));
+                }
             }
             catch (Exception exception)
             {
                 LogMessage(string.Format("Error while installing extensions: {0}", exception.Message));
-            }
-        }
-
-        private void ExtensionManagerInstallCompleted(object sender, InstallCompletedEventArgs e)
-        {
-            try
-            {
-                if (e.Error != null)
-                    LogMessage(string.Format("Error while installing extension: {0}", e.Error.Message));
-                else
-                {
-                    var extensionName = e.Extension.Header.Name;
-                    LogMessage(string.Format("Installed {0}", extensionName));
-                    ExtensionInstallDone(extensionName);
-                }
-
-                CheckIfAllExtensionInstallsHaveCompleted();
-            }
-            catch (Exception exception)
-            {
-                LogMessage(string.Format("Error after installing extension: {0}", exception.Message));
-            }
-        }
-
-        private void CheckIfAllExtensionInstallsHaveCompleted()
-        {
-            lock (this)
-            {
-                if (extensionsBeingInstalled.Count == 0)
-                    ClearExtensionManagerEventHandlers();
-            }
-
-        }
-
-        private void ExtensionInstallDone(string extensionName)
-        {
-            lock (this)
-            {
-                extensionsBeingInstalled.Remove(extensionName);
             }
         }
 
@@ -259,11 +170,5 @@ namespace ExtensionSync
         public bool AutoUpdateExtensions { get; set; }
         IVsExtensionManager ExtensionManager { get; set; }
         IVsExtensionRepository ExtensionRepository { get; set; }
-
-        List<string> extensionsBeingInstalled = new List<string>();
-        private bool eventHandlersCleared;
-        private Timer processingTimer = new Timer(MaxProcessingDuration);
-
-        private const int MaxProcessingDuration = 30000;
     }
 }

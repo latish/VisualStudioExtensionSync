@@ -74,6 +74,7 @@ namespace ExtensionSync
         {
             CleanUpFileWatcher();
             SetupFileWatcher();
+            SetUpLogger();
 
             SynchronizeExtensions();
         }
