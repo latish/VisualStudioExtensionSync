@@ -103,9 +103,6 @@ namespace ExtensionSync
             {
                 try
                 {
-                    if (extension.Name.Equals("ExtensionSync", StringComparison.InvariantCultureIgnoreCase))
-                        continue;
-
                     var extensionInformation = extension;
                     var userExtension =
                         installedUserExtensions.SingleOrDefault(e =>
@@ -151,14 +148,14 @@ namespace ExtensionSync
                     return;
                 }
 
-                if(AutoUpdateExtensions)
+                if (AutoUpdateExtensions)
                 {
                     var installedExtensions = GetInstalledExtensionsInformation();
                     var installedExtension = installedExtensions.FirstOrDefault(ext => ext.Name == extensionInformation.Name
                                          &&
                                          ext.Identifier ==
                                          extensionInformation.Identifier);
-                    if(installedExtension!=null && installedExtension.Version.ToString()==entry.VsixVersion)
+                    if (installedExtension != null && installedExtension.Version.ToString() == entry.VsixVersion)
                     {
                         ExtensionInstallDone(extensionInformation.Name);
                         return;
@@ -184,19 +181,27 @@ namespace ExtensionSync
                 }
 
                 var installableExtension = e.Payload;
-
-                var installedExtensions = GetInstalledExtensionsInformation();
-                if (installedExtensions.Any(i =>
-                        i.Name == installableExtension.Header.Name &&
-                        i.Identifier == installableExtension.Header.Identifier &&
-                        i.Version>=installableExtension.Header.Version))
-                {
-                    ExtensionInstallDone(installableExtension.Header.Name);
-                    return;
-                }
-
                 if (installableExtension == null)
                     return;
+
+                var installedExtensions = GetInstalledExtensionsInformation();
+                var installedExtension = installedExtensions.FirstOrDefault(i =>
+                                                                            i.Name == installableExtension.Header.Name &&
+                                                                            i.Identifier ==
+                                                                            installableExtension.Header.Identifier);
+
+                if (installedExtension != null)
+                {
+                    if (installedExtension.Version >= installableExtension.Header.Version)
+                    {
+                        ExtensionInstallDone(installableExtension.Header.Name);
+                        return;
+                    }
+                    //extension needs to be updated - uninstall and install again
+                    LogMessage(string.Format("{0} has an update available.", installableExtension.Header.Name));
+                    UnInstallExtensions(new List<ExtensionInformation> { installedExtension }, DateTime.Now);
+                }
+
                 ExtensionManager.InstallAsync(installableExtension, false);
             }
             catch (Exception exception)
