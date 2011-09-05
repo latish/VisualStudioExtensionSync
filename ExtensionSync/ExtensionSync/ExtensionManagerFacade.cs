@@ -185,8 +185,9 @@ namespace ExtensionSync
                     return;
 
                 var installedExtensions = GetInstalledExtensionsInformation();
+                var extensionName = installableExtension.Header.Name;
                 var installedExtension = installedExtensions.FirstOrDefault(i =>
-                                                                            i.Name == installableExtension.Header.Name &&
+                                                                            i.Name == extensionName &&
                                                                             i.Identifier ==
                                                                             installableExtension.Header.Identifier);
 
@@ -194,11 +195,11 @@ namespace ExtensionSync
                 {
                     if (installedExtension.Version >= installableExtension.Header.Version)
                     {
-                        ExtensionInstallDone(installableExtension.Header.Name);
+                        ExtensionInstallDone(extensionName);
                         return;
                     }
                     //extension needs to be updated - uninstall and install again
-                    LogMessage(string.Format("{0} has an update available.", installableExtension.Header.Name));
+                    LogMessage(string.Format("{0} has an update available.", extensionName));
                     UnInstallExtensions(new List<ExtensionInformation> { installedExtension }, DateTime.Now);
                 }
 
@@ -214,13 +215,14 @@ namespace ExtensionSync
         {
             try
             {
-                var extensionName = e.Extension.Header.Name;
                 if (e.Error != null)
                     LogMessage(string.Format("Error while installing extension: {0}", e.Error.Message));
                 else
+                {
+                    var extensionName = e.Extension.Header.Name;
                     LogMessage(string.Format("Installed {0}", extensionName));
-
-                ExtensionInstallDone(extensionName);
+                    ExtensionInstallDone(extensionName);
+                }
 
                 CheckIfAllExtensionInstallsHaveCompleted();
             }
@@ -260,8 +262,8 @@ namespace ExtensionSync
 
         List<string> extensionsBeingInstalled = new List<string>();
         private bool eventHandlersCleared;
-        private Timer processingTimer = new Timer((MaxProcessingDuration));
+        private Timer processingTimer = new Timer(MaxProcessingDuration);
 
-        private const int MaxProcessingDuration = 60000;
+        private const int MaxProcessingDuration = 30000;
     }
 }
