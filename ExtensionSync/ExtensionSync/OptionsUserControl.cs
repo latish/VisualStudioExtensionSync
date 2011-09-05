@@ -16,6 +16,7 @@ namespace ExtensionSync
         {
             UpdatePathTextBoxes();
             cbxEnableLogging.Checked = OptionsPage.LoggingEnabled;
+            cbxAutoUpdateExtensions.Checked = OptionsPage.AutoUpdateExtensions;
             btnBrowseLogFilePath.Enabled = cbxEnableLogging.Checked;
         }
 

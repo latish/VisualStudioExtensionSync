@@ -64,7 +64,7 @@ namespace ExtensionSync
                     query.ExecuteAsync(extension);
                 }
 
-                //Give it a a few minutes to do its work. If everything goes smoothly, event handlers should unbind.
+                //Give it a a minute to do its work. If everything goes smoothly, event handlers should unbind.
                 // Make a safety check and remove handlers if not already done
                 processingTimer.Start();
             }
@@ -212,16 +212,22 @@ namespace ExtensionSync
 
         private void ExtensionManagerInstallCompleted(object sender, InstallCompletedEventArgs e)
         {
-            if (e.Error != null)
+            try
             {
-                LogMessage(string.Format("Error while installing extension: {0}", e.Error.Message));
-                return;
-            }
-            var extensionName = e.Extension.Header.Name;
-            LogMessage(string.Format("Installed {0}", extensionName));
+                var extensionName = e.Extension.Header.Name;
+                if (e.Error != null)
+                    LogMessage(string.Format("Error while installing extension: {0}", e.Error.Message));
+                else
+                    LogMessage(string.Format("Installed {0}", extensionName));
 
-            ExtensionInstallDone(extensionName);
-            CheckIfAllExtensionInstallsHaveCompleted();
+                ExtensionInstallDone(extensionName);
+
+                CheckIfAllExtensionInstallsHaveCompleted();
+            }
+            catch (Exception exception)
+            {
+                LogMessage(string.Format("Error after installing extension: {0}", exception.Message));
+            }
         }
 
         private void CheckIfAllExtensionInstallsHaveCompleted()
@@ -256,6 +262,6 @@ namespace ExtensionSync
         private bool eventHandlersCleared;
         private Timer processingTimer = new Timer((MaxProcessingDuration));
 
-        private const int MaxProcessingDuration = 120000;
+        private const int MaxProcessingDuration = 60000;
     }
 }
