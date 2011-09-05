@@ -24,14 +24,17 @@ namespace ExtensionSync
         public List<ExtensionInformation> GetInstalledExtensionsInformation()
         {
             var installedExtensions = ExtensionManager.GetInstalledExtensions();
-            var userExtensions = installedExtensions.Where(ext => 
+            var userExtensions = installedExtensions.Where(ext =>
                         !ext.Header.SystemComponent && !ext.Header.InstalledByMsi)
                         .OrderBy(ext => ext.Header.Name);
 
-            //userExtensions.ToList().ForEach(u=>LogMessage(string.Format("{0} - {1}",u.Header.Name,u.State)));
-
             return userExtensions.Select(
-                    e => new ExtensionInformation { Name = e.Header.Name, Identifier = e.Header.Identifier })
+                    e => new ExtensionInformation
+                    {
+                        Name = e.Header.Name,
+                        Identifier = e.Header.Identifier,
+                        Version = e.Header.Version
+                    })
                     .ToList();
         }
 
@@ -110,7 +113,7 @@ namespace ExtensionSync
                             e.Header.Identifier == extensionInformation.Identifier);
                     if (userExtension == null) continue;
 
-                    if(extensionsInstalledAfterConfigUpdated.Contains(userExtension))
+                    if (extensionsInstalledAfterConfigUpdated.Contains(userExtension))
                     {
                         LogMessage(string.Format("Not uninstalling {0} since it was installed after last update to config file."
                             , userExtension.Header.Name));
@@ -139,7 +142,7 @@ namespace ExtensionSync
 
                 var extensionInformation = (ExtensionInformation)e.UserState;
                 var entry =
-                    e.Results.Cast<VSGalleryEntry>().SingleOrDefault(r => 
+                    e.Results.Cast<VSGalleryEntry>().SingleOrDefault(r =>
                         r.Name == extensionInformation.Name && r.VsixID == extensionInformation.Identifier);
                 if (entry == null)
                 {
@@ -147,6 +150,21 @@ namespace ExtensionSync
                     ExtensionInstallDone(extensionInformation.Name);
                     return;
                 }
+
+                if(AutoUpdateExtensions)
+                {
+                    var installedExtensions = GetInstalledExtensionsInformation();
+                    var installedExtension = installedExtensions.FirstOrDefault(ext => ext.Name == extensionInformation.Name
+                                         &&
+                                         ext.Identifier ==
+                                         extensionInformation.Identifier);
+                    if(installedExtension!=null && installedExtension.Version.ToString()==entry.VsixVersion)
+                    {
+                        ExtensionInstallDone(extensionInformation.Name);
+                        return;
+                    }
+                }
+
                 ExtensionRepository.DownloadAsync(entry);
             }
             catch (Exception exception)
@@ -170,7 +188,8 @@ namespace ExtensionSync
                 var installedExtensions = GetInstalledExtensionsInformation();
                 if (installedExtensions.Any(i =>
                         i.Name == installableExtension.Header.Name &&
-                        i.Identifier == installableExtension.Header.Identifier))
+                        i.Identifier == installableExtension.Header.Identifier &&
+                        i.Version>=installableExtension.Header.Version))
                 {
                     ExtensionInstallDone(installableExtension.Header.Name);
                     return;
@@ -224,6 +243,7 @@ namespace ExtensionSync
                 Log.Invoke(message);
         }
 
+        public bool AutoUpdateExtensions { get; set; }
         IVsExtensionManager ExtensionManager { get; set; }
         IVsExtensionRepository ExtensionRepository { get; set; }
 

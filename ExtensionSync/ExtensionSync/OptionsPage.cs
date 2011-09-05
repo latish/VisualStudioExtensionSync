@@ -35,12 +35,14 @@ namespace ExtensionSync
             }
         }
 
+        [Category("Extension Sync"), DisplayName(@"Auto Update Extensions"), Description("Automatically Update Extensions on startup")]
+        public bool AutoUpdateExtensions { get; set; }
+
         protected override void OnApply(PageApplyEventArgs e)
         {
             base.OnApply(e);
             OnSettingsDirectoryPathUpdated(SettingsDirectoryPath);
         }
-
 
         void OnSettingsDirectoryPathUpdated(string path)
         {

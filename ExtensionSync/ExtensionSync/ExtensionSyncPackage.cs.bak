@@ -52,8 +52,6 @@ namespace ExtensionSync
             settingsRepository.Log += LogMessage;
             var persistedExtensionSettings = settingsRepository.GetPersistedExtensionSettings();
 
-            if (persistedExtensionSettings.Count == 0)
-                return;
 
             var installedUserExtensions = extensionManager.GetInstalledExtensionsInformation();
 

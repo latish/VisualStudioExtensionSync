@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Xml.Serialization;
 
 namespace ExtensionSync
 {
@@ -6,6 +7,8 @@ namespace ExtensionSync
     {
         public string Name { get; set; }
         public string Identifier { get; set; }
+        [XmlIgnore]
+        public Version Version { get; set; }
 
         public bool Equals(ExtensionInformation other)
         {

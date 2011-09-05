@@ -52,5 +52,10 @@ namespace ExtensionSync
             OptionsPage.LoggingEnabled = cbxEnableLogging.Checked;
             btnBrowseLogFilePath.Enabled = cbxEnableLogging.Checked;
         }
+
+        private void CbxAutoUpdateExtensionsCheckedChanged(object sender, EventArgs e)
+        {
+            OptionsPage.AutoUpdateExtensions = cbxAutoUpdateExtensions.Checked;
+        }
     }
 }

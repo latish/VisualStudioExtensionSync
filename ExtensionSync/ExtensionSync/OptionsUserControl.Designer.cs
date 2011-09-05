@@ -36,6 +36,7 @@
             this.btnBrowseLogFilePath = new System.Windows.Forms.Button();
             this.txtLogPath = new System.Windows.Forms.TextBox();
             this.cbxEnableLogging = new System.Windows.Forms.CheckBox();
+            this.cbxAutoUpdateExtensions = new System.Windows.Forms.CheckBox();
             this.SuspendLayout();
             // 
             // txtSettingsFilePath
@@ -103,10 +104,22 @@
             this.cbxEnableLogging.UseVisualStyleBackColor = true;
             this.cbxEnableLogging.CheckedChanged += new System.EventHandler(this.CbxEnableLoggingCheckedChanged);
             // 
+            // cbxAutoUpdateExtensions
+            // 
+            this.cbxAutoUpdateExtensions.AutoSize = true;
+            this.cbxAutoUpdateExtensions.Location = new System.Drawing.Point(7, 170);
+            this.cbxAutoUpdateExtensions.Name = "cbxAutoUpdateExtensions";
+            this.cbxAutoUpdateExtensions.Size = new System.Drawing.Size(180, 17);
+            this.cbxAutoUpdateExtensions.TabIndex = 7;
+            this.cbxAutoUpdateExtensions.Text = "Automatically Update Extensions";
+            this.cbxAutoUpdateExtensions.UseVisualStyleBackColor = true;
+            this.cbxAutoUpdateExtensions.CheckedChanged += new System.EventHandler(this.CbxAutoUpdateExtensionsCheckedChanged);
+            // 
             // OptionsUserControl
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.Controls.Add(this.cbxAutoUpdateExtensions);
             this.Controls.Add(this.cbxEnableLogging);
             this.Controls.Add(this.lblLogPath);
             this.Controls.Add(this.btnBrowseLogFilePath);
@@ -131,5 +144,6 @@
         private System.Windows.Forms.Button btnBrowseLogFilePath;
         private System.Windows.Forms.TextBox txtLogPath;
         private System.Windows.Forms.CheckBox cbxEnableLogging;
+        private System.Windows.Forms.CheckBox cbxAutoUpdateExtensions;
     }
 }
