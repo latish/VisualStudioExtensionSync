@@ -82,8 +82,16 @@ namespace ExtensionSync
         private void CleanUpFileWatcher()
         {
             fileWatcher.EnableRaisingEvents = false;
-            fileWatcher.Changed -= (s, e) => SynchronizeExtensions();
+            fileWatcher.Changed -= OnFileWatcherOnChanged;
             fileWatcher.Dispose();
+        }
+
+        private void OnFileWatcherOnChanged(object s, FileSystemEventArgs e)
+        {
+            lock (this)
+            {
+                SynchronizeExtensions();
+            }
         }
 
         void LogMessage(string message)
@@ -131,7 +139,7 @@ namespace ExtensionSync
                                   Path = Path.GetDirectoryName(SettingsFilePath),
                                   Filter = SettingsFileName
                               };
-            fileWatcher.Changed += (s, e) => SynchronizeExtensions();
+            fileWatcher.Changed += OnFileWatcherOnChanged;
             fileWatcher.EnableRaisingEvents = true;
         }
 
