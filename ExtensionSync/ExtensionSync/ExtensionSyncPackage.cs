@@ -88,8 +88,12 @@ namespace ExtensionSync
 
         private void OnFileWatcherOnChanged(object s, FileSystemEventArgs e)
         {
+            //Hack: FileSystem can issue multiple updates on each save, especially with notepad
+            if(DateTime.Now.Subtract(lastFileChangeSynchronize).TotalSeconds<5)
+                return;
             lock (this)
             {
+                lastFileChangeSynchronize = DateTime.Now;
                 SynchronizeExtensions();
             }
         }
@@ -203,6 +207,7 @@ namespace ExtensionSync
         uint cookie;
         private ILog logger;
         private FileSystemWatcher fileWatcher;
+        private DateTime lastFileChangeSynchronize;
 
         const string PackageName = "ExtensionSync";
         const string SettingsFileName = "ExtensionSync.xml";
