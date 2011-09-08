@@ -1,3 +1,4 @@
-Allows you to synchronize Visual Studio extensions between multiple instances. After installing, configure your settings directory by going to Tools->Options->ExtensionSync. Visual Studio will persist information about your extensions here every time it shuts down. On Startup, it'll scan this file for changes and apply changes, if any.
+Allows you to auto-update and synchronize Visual Studio extensions (VSIX only) between multiple instances. After installing, configure your settings by going to Tools->Options->ExtensionSync. Visual Studio will persist information about your extensions every time it shuts down. It'll also monitor the settings file for changes and update extensions, if needed.
+This will not synchronize extensions installed using MSIs.
 Read more at http://dotnetsurfers.com/blog/2011/03/14/extensionsync-a-visual-studio-extension-to-synchronize-other-extensions/.
 
